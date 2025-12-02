@@ -1,11 +1,15 @@
 "use client"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { LayoutDashboard, Package, MessageSquare, ChevronRight } from "lucide-react"
 
-export default function Sidebar({ currentPage, setCurrentPage }) {
+export default function Sidebar() {
+  const pathname = usePathname()
+
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "products", label: "Products", icon: Package },
-    { id: "leads", label: "Leads", icon: MessageSquare },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/" },
+    { id: "products", label: "Products", icon: Package, href: "/products" },
+    { id: "leads", label: "Leads", icon: MessageSquare, href: "/leads" },
   ]
 
   return (
@@ -20,11 +24,11 @@ export default function Sidebar({ currentPage, setCurrentPage }) {
       <nav className="flex-1 p-4 space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon
-          const isActive = currentPage === item.id
+          const isActive = pathname === item.href
           return (
-            <button
+            <Link
               key={item.id}
-              onClick={() => setCurrentPage(item.id)}
+              href={item.href}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive
                   ? "bg-sidebar-primary text-sidebar-primary-foreground"
@@ -34,7 +38,7 @@ export default function Sidebar({ currentPage, setCurrentPage }) {
               <Icon size={20} />
               <span className="font-medium">{item.label}</span>
               {isActive && <ChevronRight size={18} className="ml-auto" />}
-            </button>
+            </Link>
           )
         })}
       </nav>
