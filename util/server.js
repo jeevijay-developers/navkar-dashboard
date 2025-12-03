@@ -1,3 +1,5 @@
+"use client"
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
 class ServerAPI {
@@ -6,6 +8,11 @@ class ServerAPI {
   }
 
   async request(endpoint, options = {}) {
+    // Skip API calls during build time (SSR without window)
+    if (typeof window === 'undefined') {
+      return Promise.resolve({ message: 'SSR - API call skipped' })
+    }
+
     const url = `${this.baseURL}${endpoint}`
     const config = {
       ...options,
@@ -25,7 +32,6 @@ class ServerAPI {
     }
 
     try {
-      console.log(`API Request: ${options.method || 'GET'} ${url}`)
       const response = await fetch(url, config)
       
       let data
@@ -38,14 +44,20 @@ class ServerAPI {
       }
 
       if (!response.ok) {
-        console.error(`API Error: ${response.status}`, data)
-        throw new Error(data.message || `HTTP error! status: ${response.status}`)
+        const error = new Error(data.message || `HTTP error! status: ${response.status}`)
+        error.status = response.status
+        error.data = data
+        throw error
       }
 
-      console.log(`API Response: Success`, data)
       return data
     } catch (error) {
-      console.error(`API request failed: ${endpoint}`, error)
+      // Re-throw with additional context
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        const networkError = new Error('Unable to connect to the server. Please check if the backend is running.')
+        networkError.originalError = error
+        throw networkError
+      }
       throw error
     }
   }
