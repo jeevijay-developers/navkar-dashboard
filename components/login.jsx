@@ -34,7 +34,7 @@ export default function Login({ onLogin }) {
                 priority
               />
             </div>
-          
+  
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
