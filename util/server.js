@@ -199,6 +199,61 @@ class ServerAPI {
       body: formData,
     })
   }
+
+  // Quotation API Methods
+
+  /**
+   * Get all quotations
+   * @param {Object} params - Query parameters (userId, status, startDate, endDate, page, limit)
+   * @returns {Promise<Object>} List of quotations with pagination
+   */
+  async getQuotations(params = {}) {
+    const queryString = new URLSearchParams(params).toString()
+    return this.request(`/quotations${queryString ? `?${queryString}` : ""}`)
+  }
+
+  /**
+   * Get a single quotation by ID
+   * @param {string} id - Quotation ID
+   * @returns {Promise<Object>} Quotation details
+   */
+  async getQuotationById(id) {
+    return this.request(`/quotations/${id}`)
+  }
+
+  /**
+   * Create a new quotation
+   * @param {Object} quotationData - Quotation data
+   * @returns {Promise<Object>} Created quotation
+   */
+  async createQuotation(quotationData) {
+    return this.request("/quotations", {
+      method: "POST",
+      body: JSON.stringify(quotationData),
+    })
+  }
+
+  /**
+   * Resend WhatsApp for a quotation
+   * @param {string} id - Quotation ID
+   * @param {Object} options - Send options (sendToUser, sendToCompany)
+   * @returns {Promise<Object>} Resend result
+   */
+  async resendQuotationWhatsApp(id, options = {}) {
+    return this.request(`/quotations/${id}/resend-whatsapp`, {
+      method: "POST",
+      body: JSON.stringify(options),
+    })
+  }
+
+  /**
+   * Get quotation PDF URL
+   * @param {string} id - Quotation ID
+   * @returns {string} PDF URL
+   */
+  getQuotationPDFUrl(id) {
+    return `${this.baseURL}/quotations/${id}/pdf`
+  }
 }
 
 // Create and export a singleton instance
@@ -216,4 +271,9 @@ export const {
   bulkUploadProducts,
   createProductWithImage,
   updateProductWithImage,
+  getQuotations,
+  getQuotationById,
+  createQuotation,
+  resendQuotationWhatsApp,
+  getQuotationPDFUrl,
 } = serverAPI

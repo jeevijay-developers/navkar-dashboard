@@ -10,6 +10,7 @@ export function AppProvider({ children }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [quotations, setQuotations] = useState([])
   const [leads, setLeads] = useState([
     {
       id: 1,
@@ -49,11 +50,13 @@ export function AppProvider({ children }) {
   // Fetch products from API on mount and when authenticated
   useEffect(() => {
     fetchProducts()
+    fetchQuotations()
   }, [])
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchProducts()
+      fetchQuotations()
     }
   }, [isAuthenticated])
 
@@ -67,6 +70,21 @@ export function AppProvider({ children }) {
     } catch (err) {
       setError(err.message)
       console.error("Failed to fetch products:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchQuotations = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await serverAPI.getQuotations({ limit: 100 })
+      console.log("Fetched quotations from API:", data)
+      setQuotations(data.quotations || [])
+    } catch (err) {
+      setError(err.message)
+      console.error("Failed to fetch quotations:", err)
     } finally {
       setLoading(false)
     }
@@ -174,6 +192,38 @@ export function AppProvider({ children }) {
     a.click()
   }
 
+  const handleCreateQuotation = async (quotationData) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const result = await serverAPI.createQuotation(quotationData)
+      await fetchQuotations() // Refresh quotations list
+      return result
+    } catch (err) {
+      setError(err.message)
+      console.error("Failed to create quotation:", err)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendWhatsApp = async (quotationId, options) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const result = await serverAPI.resendQuotationWhatsApp(quotationId, options)
+      await fetchQuotations() // Refresh quotations list
+      return result
+    } catch (err) {
+      setError(err.message)
+      console.error("Failed to resend WhatsApp:", err)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <AppContext.Provider
       value={{
@@ -181,9 +231,11 @@ export function AppProvider({ children }) {
         setIsAuthenticated,
         products,
         setProducts,
+        quotations,
         loading,
         error,
         fetchProducts,
+        fetchQuotations,
         leads,
         setLeads,
         handleAddProduct,
@@ -191,6 +243,8 @@ export function AppProvider({ children }) {
         handleDeleteProduct,
         handleBulkUpload,
         handleExportLeads,
+        handleCreateQuotation,
+        handleResendWhatsApp,
       }}
     >
       {children}

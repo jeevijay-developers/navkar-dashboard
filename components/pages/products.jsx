@@ -2,24 +2,31 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Edit2, Trash2, Upload } from "lucide-react"
+import { Search, Plus, Edit2, Trash2, Upload, X } from "lucide-react"
 import EditProductModal from "@/components/modals/EditProductModal"
+import BulkUploadModal from "@/components/modals/BulkUploadModal"
 
-export default function Products({ products, onEdit, onDelete, onUpdate, loading }) {
+export default function Products({ products, onEdit, onDelete, onUpdate, onBulkUpload, loading }) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [materialFilter, setMaterialFilter] = useState("All")
+  const [capTypeFilter, setCapTypeFilter] = useState("All")
   const [editingProduct, setEditingProduct] = useState(null)
   const [updateLoading, setUpdateLoading] = useState(false)
+  const [showBulkUpload, setShowBulkUpload] = useState(false)
+  const [bulkUploadLoading, setBulkUploadLoading] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   const materials = ["All", ...new Set(products.map((p) => p.materialOfConstruction).filter(Boolean))]
+  const capTypes = ["All", ...new Set(products.map((p) => p.capType).filter(Boolean))]
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.capType?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesMaterial = materialFilter === "All" || p.materialOfConstruction === materialFilter
-    return matchesSearch && matchesMaterial
+    const matchesCapType = capTypeFilter === "All" || p.capType === capTypeFilter
+    return matchesSearch && matchesMaterial && matchesCapType
   })
 
   const handleEditClick = (product) => {
@@ -42,14 +49,77 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
     }
   }
 
+  const handleBulkUpload = async (file) => {
+    setBulkUploadLoading(true)
+    try {
+      const result = await onBulkUpload(file)
+      return result
+    } catch (error) {
+      throw error
+    } finally {
+      setBulkUploadLoading(false)
+    }
+  }
+
+  const handleDeleteClick = (product) => {
+    setDeleteConfirm(product)
+  }
+
+  const handleDeleteConfirm = () => {
+    if (deleteConfirm) {
+      onDelete(deleteConfirm._id)
+      setDeleteConfirm(null)
+    }
+  }
+
   return (
-    <div className="p-6 space-y-6">{editingProduct && (
+    <div className="p-6 space-y-6">
+      {editingProduct && (
         <EditProductModal
           product={editingProduct}
           onClose={handleEditClose}
           onSave={handleEditSave}
           loading={updateLoading}
         />
+      )}
+      {showBulkUpload && (
+        <BulkUploadModal
+          onClose={() => setShowBulkUpload(false)}
+          onUpload={handleBulkUpload}
+          loading={bulkUploadLoading}
+        />
+      )}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Confirm Delete</h2>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete <span className="font-semibold">"{deleteConfirm.name}"</span>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Delete Product
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
@@ -58,13 +128,16 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
           <p className="text-muted-foreground mt-1">Manage your product catalog</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 bg-secondary text-foreground px-4 py-2 rounded-lg hover:bg-secondary/80 transition-colors font-medium border border-border">
+          <button 
+            onClick={() => setShowBulkUpload(true)}
+            className="flex items-center gap-2 bg-secondary text-foreground px-4 py-2 rounded-lg hover:bg-secondary/80 transition-colors font-medium border border-border"
+          >
             <Upload size={20} />
             Bulk Upload
           </button>
           <button
             onClick={() => router.push("/products/add")}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors font-medium"
+            className="flex items-center gap-2 bg-[#282965] text-primary-foreground px-4 py-2 rounded-lg hover:bg-[#154c79] transition-colors font-medium"
           >
             <Plus size={20} />
             Add Product
@@ -73,21 +146,20 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-3 text-muted-foreground" size={20} />
-          <input
-            type="text"
-            placeholder="Search by product name or cap type..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
+      <div className="bg-card border border-border rounded-lg p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative md:w-1/2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+            <input
+              type="text"
+              placeholder="Search by product name or cap type..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Material</label>
+          <div className="md:w-1/4">
             <select
               value={materialFilter}
               onChange={(e) => setMaterialFilter(e.target.value)}
@@ -95,7 +167,21 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
             >
               {materials.map((mat) => (
                 <option key={mat} value={mat}>
-                  {mat}
+                  {mat === "All" ? "All Materials" : mat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="md:w-1/4">
+            <select
+              value={capTypeFilter}
+              onChange={(e) => setCapTypeFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-input rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {capTypes.map((cap) => (
+                <option key={cap} value={cap}>
+                  {cap === "All" ? "All Cap Types" : cap}
                 </option>
               ))}
             </select>
@@ -159,11 +245,7 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
                           <Edit2 size={18} className="text-primary" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to delete "${product.name}"?`)) {
-                              onDelete(product._id)
-                            }
-                          }}
+                          onClick={() => handleDeleteClick(product)}
                           className="p-2 hover:bg-secondary rounded transition-colors"
                           title="Delete product"
                         >
