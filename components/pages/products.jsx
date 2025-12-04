@@ -16,6 +16,8 @@ export default function Products({ products, onEdit, onDelete, onUpdate, onBulkU
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [bulkUploadLoading, setBulkUploadLoading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
   const materials = ["All", ...new Set(products.map((p) => p.materialOfConstruction).filter(Boolean))]
   const capTypes = ["All", ...new Set(products.map((p) => p.capType).filter(Boolean))]
@@ -28,6 +30,28 @@ export default function Products({ products, onEdit, onDelete, onUpdate, onBulkU
     const matchesCapType = capTypeFilter === "All" || p.capType === capTypeFilter
     return matchesSearch && matchesMaterial && matchesCapType
   })
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value) => {
+    setSearchQuery(value)
+    setCurrentPage(1)
+  }
+
+  const handleMaterialChange = (value) => {
+    setMaterialFilter(value)
+    setCurrentPage(1)
+  }
+
+  const handleCapTypeChange = (value) => {
+    setCapTypeFilter(value)
+    setCurrentPage(1)
+  }
 
   const handleEditClick = (product) => {
     setEditingProduct(product)
@@ -154,7 +178,7 @@ export default function Products({ products, onEdit, onDelete, onUpdate, onBulkU
               type="text"
               placeholder="Search by product name or cap type..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -162,7 +186,7 @@ export default function Products({ products, onEdit, onDelete, onUpdate, onBulkU
           <div className="md:w-1/4">
             <select
               value={materialFilter}
-              onChange={(e) => setMaterialFilter(e.target.value)}
+              onChange={(e) => handleMaterialChange(e.target.value)}
               className="w-full px-4 py-2 border border-input rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {materials.map((mat) => (
@@ -176,7 +200,7 @@ export default function Products({ products, onEdit, onDelete, onUpdate, onBulkU
           <div className="md:w-1/4">
             <select
               value={capTypeFilter}
-              onChange={(e) => setCapTypeFilter(e.target.value)}
+              onChange={(e) => handleCapTypeChange(e.target.value)}
               className="w-full px-4 py-2 border border-input rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {capTypes.map((cap) => (
@@ -211,7 +235,7 @@ export default function Products({ products, onEdit, onDelete, onUpdate, onBulkU
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((product) => (
+                {paginatedProducts.map((product) => (
                   <tr key={product._id} className="border-b border-border hover:bg-secondary/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -268,6 +292,107 @@ export default function Products({ products, onEdit, onDelete, onUpdate, onBulkU
               >
                 Add your first product
               </button>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {filteredProducts.length > 0 && (
+            <div className="px-6 py-4 border-t border-border bg-secondary/30">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Show</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="px-2 py-1 border border-input rounded bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span>
+                    entries per page
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length} products
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="First page"
+                  >
+                    ««
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Previous page"
+                  >
+                    «
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {[...Array(totalPages)].map((_, idx) => {
+                      const pageNum = idx + 1
+                      // Show first page, last page, current page, and pages around current
+                      if (
+                        pageNum === 1 ||
+                        pageNum === totalPages ||
+                        (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`px-3 py-1 border rounded transition-colors ${
+                              currentPage === pageNum
+                                ? "bg-[#282965] text-white border-[#282965]"
+                                : "bg-input text-foreground border-input hover:bg-secondary"
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        )
+                      } else if (
+                        pageNum === currentPage - 2 ||
+                        pageNum === currentPage + 2
+                      ) {
+                        return <span key={pageNum} className="px-1">...</span>
+                      }
+                      return null
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Next page"
+                  >
+                    »
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Last page"
+                  >
+                    »»
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

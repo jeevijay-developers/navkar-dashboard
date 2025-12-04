@@ -9,7 +9,7 @@ import Dashboard from "@/components/pages/dashboard"
 import { useApp } from "@/context/AppContext"
 
 export default function Home() {
-  const { isAuthenticated, setIsAuthenticated, products, leads } = useApp()
+  const { isAuthenticated, setIsAuthenticated, products, quotations } = useApp()
   const router = useRouter()
 
   // Show login page if not authenticated
@@ -23,7 +23,7 @@ export default function Home() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         <main className="flex-1 overflow-auto bg-background">
-          <Dashboard products={products} leads={leads} />
+          <Dashboard products={products} leads={quotations} />
         </main>
       </div>
     </div>
