@@ -6,6 +6,8 @@ import { Search, Download, Eye, FileText, Mail, Phone } from "lucide-react"
 export default function Leads({ quotations, onViewDetail, onExport, loading }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
   const statuses = ["All", "draft", "sent", "viewed", "accepted", "rejected", "expired"]
 
@@ -18,6 +20,23 @@ export default function Leads({ quotations, onViewDetail, onExport, loading }) {
     const matchesStatus = statusFilter === "All" || quotation.status === statusFilter
     return matchesSearch && matchesStatus
   })
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredQuotations.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedQuotations = filteredQuotations.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value) => {
+    setSearchQuery(value)
+    setCurrentPage(1)
+  }
+
+  const handleStatusChange = (value) => {
+    setStatusFilter(value)
+    setCurrentPage(1)
+  }
 
   const getStatusBadge = (status) => {
     const statusColors = {
@@ -75,7 +94,7 @@ export default function Leads({ quotations, onViewDetail, onExport, loading }) {
               type="text"
               placeholder="Search by quotation number, name, email, or phone..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -83,7 +102,7 @@ export default function Leads({ quotations, onViewDetail, onExport, loading }) {
           <div className="md:w-1/3">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => handleStatusChange(e.target.value)}
               className="w-full px-4 py-2 border border-input rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {statuses.map((status) => (
@@ -121,7 +140,7 @@ export default function Leads({ quotations, onViewDetail, onExport, loading }) {
                 </tr>
               </thead>
               <tbody>
-                {filteredQuotations.map((quotation) => (
+                {paginatedQuotations.map((quotation) => (
                   <tr key={quotation._id} className="border-b border-border hover:bg-secondary/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
@@ -185,6 +204,107 @@ export default function Leads({ quotations, onViewDetail, onExport, loading }) {
           {filteredQuotations.length === 0 && !loading && (
             <div className="px-6 py-12 text-center">
               <p className="text-muted-foreground">No quotations found</p>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {filteredQuotations.length > 0 && (
+            <div className="px-6 py-4 border-t border-border bg-secondary/30">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Show</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="px-2 py-1 border border-input rounded bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span>
+                    entries per page
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredQuotations.length)} of {filteredQuotations.length} quotations
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="First page"
+                  >
+                    ««
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Previous page"
+                  >
+                    «
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {[...Array(totalPages)].map((_, idx) => {
+                      const pageNum = idx + 1
+                      // Show first page, last page, current page, and pages around current
+                      if (
+                        pageNum === 1 ||
+                        pageNum === totalPages ||
+                        (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`px-3 py-1 border rounded transition-colors ${
+                              currentPage === pageNum
+                                ? "bg-[#282965] text-white border-[#282965]"
+                                : "bg-input text-foreground border-input hover:bg-secondary"
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        )
+                      } else if (
+                        pageNum === currentPage - 2 ||
+                        pageNum === currentPage + 2
+                      ) {
+                        return <span key={pageNum} className="px-1">...</span>
+                      }
+                      return null
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Next page"
+                  >
+                    »
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Last page"
+                  >
+                    »»
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
