@@ -2,19 +2,69 @@
 
 import { TrendingUp, Package, MessageSquare } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
-
-const chartData = [
-  { month: "Jan", sales: 4000, leads: 2400 },
-  { month: "Feb", sales: 3000, leads: 1398 },
-  { month: "Mar", sales: 2000, leads: 9800 },
-  { month: "Apr", sales: 2780, leads: 3908 },
-  { month: "May", sales: 1890, leads: 4800 },
-  { month: "Jun", sales: 2390, leads: 3800 },
-]
+import { useMemo } from "react"
 
 export default function Dashboard({ products, leads }) {
   const publishedCount = products.filter((p) => p.status === "Published").length
-  const totalInventory = products.reduce((sum, p) => sum + p.inventory, 0)
+  
+  // Calculate leads by month for the last 6 months
+  const leadsChartData = useMemo(() => {
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    const now = new Date()
+    const last6Months = []
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const monthName = monthNames[date.getMonth()]
+      const year = date.getFullYear()
+      const monthKey = `${monthName} ${year}`
+      
+      const leadsCount = leads.filter(lead => {
+        const leadDate = new Date(lead.createdAt || lead.timestamp)
+        return leadDate.getMonth() === date.getMonth() && 
+               leadDate.getFullYear() === date.getFullYear()
+      }).length
+      
+      last6Months.push({
+        month: monthName,
+        leads: leadsCount
+      })
+    }
+    
+    return last6Months
+  }, [leads])
+
+  // Calculate products by material
+  const productsByMaterial = useMemo(() => {
+    const materialCounts = {}
+    products.forEach(product => {
+      const material = product.materialOfConstruction || "Unknown"
+      materialCounts[material] = (materialCounts[material] || 0) + 1
+    })
+    
+    return Object.entries(materialCounts).map(([material, count]) => ({
+      material: material.length > 15 ? material.substring(0, 15) + "..." : material,
+      count
+    })).slice(0, 6)
+  }, [products])
+
+  // Calculate recent leads statistics
+  const recentLeadsStats = useMemo(() => {
+    const now = new Date()
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+    
+    const recentLeads = leads.filter(lead => {
+      const leadDate = new Date(lead.createdAt || lead.timestamp)
+      return leadDate >= lastMonth
+    })
+    
+    return {
+      total: leads.length,
+      lastMonth: recentLeads.length,
+      pending: leads.filter(l => l.status === "pending").length,
+      completed: leads.filter(l => l.status === "completed").length
+    }
+  }, [leads])
 
   return (
     <div className="p-6 space-y-6">
@@ -34,8 +84,8 @@ export default function Dashboard({ products, leads }) {
               <p className="text-muted-foreground text-sm font-medium">Total Products</p>
               <p className="text-3xl font-bold text-foreground mt-2">{products.length}</p>
             </div>
-            <div className="bg-primary/10 p-3 rounded-lg">
-              <Package className="text-primary" size={24} />
+            <div className="bg-[#282965]/10 p-3 rounded-lg">
+              <Package className="text-[#282965]" size={24} />
             </div>
           </div>
         </div>
@@ -46,8 +96,8 @@ export default function Dashboard({ products, leads }) {
               <p className="text-muted-foreground text-sm font-medium">Published Products</p>
               <p className="text-3xl font-bold text-foreground mt-2">{publishedCount}</p>
             </div>
-            <div className="bg-accent/10 p-3 rounded-lg">
-              <TrendingUp className="text-accent" size={24} />
+            <div className="bg-[#282965]/10 p-3 rounded-lg">
+              <TrendingUp className="text-[#282965]" size={24} />
             </div>
           </div>
         </div>
@@ -55,11 +105,11 @@ export default function Dashboard({ products, leads }) {
         <div className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-muted-foreground text-sm font-medium">Total Leads</p>
+              <p className="text-muted-foreground text-sm font-medium">Total Quotation</p>
               <p className="text-3xl font-bold text-foreground mt-2">{leads.length}</p>
             </div>
-            <div className="bg-blue-100 p-3 rounded-lg">
-              <MessageSquare className="text-blue-600" size={24} />
+            <div className="bg-[#282965]/10 p-3 rounded-lg">
+              <MessageSquare className="text-[#282965]" size={24} />
             </div>
           </div>
         </div>
@@ -67,68 +117,62 @@ export default function Dashboard({ products, leads }) {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sales Chart */}
+        {/* Leads Trend Chart */}
         <div className="bg-card border border-border rounded-lg p-6">
-          <h3 className="font-semibold text-foreground mb-4">Sales Trend</h3>
+          <h3 className="font-semibold text-foreground mb-4">Quotations Trend (Last 6 Months)</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
+            <LineChart data={leadsChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="month" stroke="var(--color-muted-foreground)" />
-              <YAxis stroke="var(--color-muted-foreground)" />
+              <YAxis stroke="var(--color-muted-foreground)" allowDecimals={false} />
               <Tooltip
                 contentStyle={{ backgroundColor: "var(--color-card)", border: "1px solid var(--color-border)" }}
               />
-              <Line type="monotone" dataKey="sales" stroke="var(--color-primary)" strokeWidth={2} />
+              <Line type="monotone" dataKey="leads" stroke="#282965" strokeWidth={2} name="Quotations" />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Leads Chart */}
+        {/* Products by Material Chart */}
         <div className="bg-card border border-border rounded-lg p-6">
-          <h3 className="font-semibold text-foreground mb-4">Leads Overview</h3>
+          <h3 className="font-semibold text-foreground mb-4">Products by Material</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
+            <BarChart data={productsByMaterial}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="month" stroke="var(--color-muted-foreground)" />
-              <YAxis stroke="var(--color-muted-foreground)" />
+              <XAxis dataKey="material" stroke="var(--color-muted-foreground)" />
+              <YAxis stroke="var(--color-muted-foreground)" allowDecimals={false} />
               <Tooltip
                 contentStyle={{ backgroundColor: "var(--color-card)", border: "1px solid var(--color-border)" }}
               />
-              <Bar dataKey="leads" fill="var(--color-accent)" />
+              <Bar dataKey="count" fill="#282965" name="Products" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Recent Leads */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <h3 className="font-semibold text-foreground mb-4">Recent Leads</h3>
-        <div className="space-y-4">
-          {leads.slice(0, 5).map((lead) => (
-            <div
-              key={lead.id}
-              className="flex items-start justify-between pb-4 border-b border-border last:border-0 last:pb-0"
-            >
-              <div className="flex-1">
-                <p className="font-medium text-foreground">{lead.name}</p>
-                <p className="text-sm text-muted-foreground truncate">{lead.message}</p>
-                <p className="text-xs text-muted-foreground mt-1">{lead.timestamp}</p>
-              </div>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-4 ${
-                  lead.status === "New"
-                    ? "bg-blue-100 text-blue-700"
-                    : lead.status === "Contacted"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-green-100 text-green-700"
-                }`}
-              >
-                {lead.status}
-              </span>
-            </div>
-          ))}
+      {/* Additional Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-card border border-border rounded-lg p-6">
+          <p className="text-muted-foreground text-sm font-medium">Quotations This Month</p>
+          <p className="text-2xl font-bold text-foreground mt-2">{recentLeadsStats.lastMonth}</p>
+        </div>
+        
+        <div className="bg-card border border-border rounded-lg p-6">
+          <p className="text-muted-foreground text-sm font-medium">Pending Quotations</p>
+          <p className="text-2xl font-bold text-foreground mt-2">{recentLeadsStats.pending}</p>
+        </div>
+        
+        <div className="bg-card border border-border rounded-lg p-6">
+          <p className="text-muted-foreground text-sm font-medium">Completed Quotations</p>
+          <p className="text-2xl font-bold text-foreground mt-2">{recentLeadsStats.completed}</p>
+        </div>
+        
+        <div className="bg-card border border-border rounded-lg p-6">
+          <p className="text-muted-foreground text-sm font-medium">Draft Products</p>
+          <p className="text-2xl font-bold text-foreground mt-2">{products.length - publishedCount}</p>
         </div>
       </div>
+      
     </div>
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("")
@@ -24,8 +25,16 @@ export default function Login({ onLogin }) {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-lg shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-blue-600 mb-2">Navkar</h1>
-            <p className="text-gray-600">Admin Dashboard Login</p>
+            <div className="w-40 h-40 relative mx-auto mb-4">
+              <Image
+                src="/navkarEcom.png"
+                alt="Navkar Logo"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+  
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -67,15 +76,13 @@ export default function Login({ onLogin }) {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
+              className="w-full bg-[#282965] text-white py-3 rounded-lg font-semibold hover:bg-[#154c79] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
             >
               Login
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-500">
-            <p>Default credentials: admin / admin123</p>
-          </div>
+          
         </div>
       </div>
     </div>

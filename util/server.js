@@ -1,3 +1,5 @@
+"use client"
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
 class ServerAPI {
@@ -6,6 +8,11 @@ class ServerAPI {
   }
 
   async request(endpoint, options = {}) {
+    // Skip API calls during build time (SSR without window)
+    if (typeof window === 'undefined') {
+      return Promise.resolve({ message: 'SSR - API call skipped' })
+    }
+
     const url = `${this.baseURL}${endpoint}`
     const config = {
       ...options,
@@ -25,7 +32,6 @@ class ServerAPI {
     }
 
     try {
-      console.log(`API Request: ${options.method || 'GET'} ${url}`)
       const response = await fetch(url, config)
       
       let data
@@ -38,14 +44,20 @@ class ServerAPI {
       }
 
       if (!response.ok) {
-        console.error(`API Error: ${response.status}`, data)
-        throw new Error(data.message || `HTTP error! status: ${response.status}`)
+        const error = new Error(data.message || `HTTP error! status: ${response.status}`)
+        error.status = response.status
+        error.data = data
+        throw error
       }
 
-      console.log(`API Response: Success`, data)
       return data
     } catch (error) {
-      console.error(`API request failed: ${endpoint}`, error)
+      // Re-throw with additional context
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        const networkError = new Error('Unable to connect to the server. Please check if the backend is running.')
+        networkError.originalError = error
+        throw networkError
+      }
       throw error
     }
   }
@@ -187,6 +199,61 @@ class ServerAPI {
       body: formData,
     })
   }
+
+  // Quotation API Methods
+
+  /**
+   * Get all quotations
+   * @param {Object} params - Query parameters (userId, status, startDate, endDate, page, limit)
+   * @returns {Promise<Object>} List of quotations with pagination
+   */
+  async getQuotations(params = {}) {
+    const queryString = new URLSearchParams(params).toString()
+    return this.request(`/quotations${queryString ? `?${queryString}` : ""}`)
+  }
+
+  /**
+   * Get a single quotation by ID
+   * @param {string} id - Quotation ID
+   * @returns {Promise<Object>} Quotation details
+   */
+  async getQuotationById(id) {
+    return this.request(`/quotations/${id}`)
+  }
+
+  /**
+   * Create a new quotation
+   * @param {Object} quotationData - Quotation data
+   * @returns {Promise<Object>} Created quotation
+   */
+  async createQuotation(quotationData) {
+    return this.request("/quotations", {
+      method: "POST",
+      body: JSON.stringify(quotationData),
+    })
+  }
+
+  /**
+   * Resend WhatsApp for a quotation
+   * @param {string} id - Quotation ID
+   * @param {Object} options - Send options (sendToUser, sendToCompany)
+   * @returns {Promise<Object>} Resend result
+   */
+  async resendQuotationWhatsApp(id, options = {}) {
+    return this.request(`/quotations/${id}/resend-whatsapp`, {
+      method: "POST",
+      body: JSON.stringify(options),
+    })
+  }
+
+  /**
+   * Get quotation PDF URL
+   * @param {string} id - Quotation ID
+   * @returns {string} PDF URL
+   */
+  getQuotationPDFUrl(id) {
+    return `${this.baseURL}/quotations/${id}/pdf`
+  }
 }
 
 // Create and export a singleton instance
@@ -204,4 +271,9 @@ export const {
   bulkUploadProducts,
   createProductWithImage,
   updateProductWithImage,
+  getQuotations,
+  getQuotationById,
+  createQuotation,
+  resendQuotationWhatsApp,
+  getQuotationPDFUrl,
 } = serverAPI

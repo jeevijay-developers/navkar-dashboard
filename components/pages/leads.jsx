@@ -1,144 +1,314 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Download, Eye } from "lucide-react"
+import { Search, Download, Eye, FileText, Mail, Phone } from "lucide-react"
 
-export default function Leads({ leads, onViewDetail, onExport }) {
+export default function Leads({ quotations, onViewDetail, onExport, loading }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
-  const [dateFilter, setDateFilter] = useState("All")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
-  const statuses = ["All", "New", "Contacted", "Qualified"]
+  const statuses = ["All", "draft", "sent", "viewed", "accepted", "rejected", "expired"]
 
-  const filteredLeads = leads.filter((lead) => {
+  const filteredQuotations = quotations.filter((quotation) => {
     const matchesSearch =
-      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.phone.includes(searchQuery)
-    const matchesStatus = statusFilter === "All" || lead.status === statusFilter
+      quotation.userDetails?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      quotation.userDetails?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      quotation.userDetails?.phone?.includes(searchQuery) ||
+      quotation.quotationNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = statusFilter === "All" || quotation.status === statusFilter
     return matchesSearch && matchesStatus
   })
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredQuotations.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedQuotations = filteredQuotations.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value) => {
+    setSearchQuery(value)
+    setCurrentPage(1)
+  }
+
+  const handleStatusChange = (value) => {
+    setStatusFilter(value)
+    setCurrentPage(1)
+  }
+
+  const getStatusBadge = (status) => {
+    const statusColors = {
+      draft: "bg-gray-100 text-gray-700",
+      sent: "bg-blue-100 text-blue-700",
+      viewed: "bg-purple-100 text-purple-700",
+      accepted: "bg-green-100 text-green-700",
+      rejected: "bg-red-100 text-red-700",
+      expired: "bg-orange-100 text-orange-700",
+    }
+    return statusColors[status] || "bg-gray-100 text-gray-700"
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A"
+    const date = new Date(dateString)
+    return date.toLocaleString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR'
+    }).format(amount || 0)
+  }
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
+    <div className="p-6 space-y-6">{/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Leads</h1>
-          <p className="text-muted-foreground mt-1">Manage and track customer leads</p>
+          <h1 className="text-3xl font-bold text-foreground">Quotations</h1>
+          <p className="text-muted-foreground mt-1">Manage and track customer quotations</p>
         </div>
         <button
           onClick={onExport}
-          className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg hover:bg-accent/90 transition-colors font-medium"
+          className="flex items-center gap-2 bg-[#282965] text-accent-foreground px-4 py-2 rounded-lg hover:bg-accent/90 transition-colors font-medium"
         >
           <Download size={20} />
-          Export Leads
+          Export Quotations
         </button>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-3 text-muted-foreground" size={20} />
-          <input
-            type="text"
-            placeholder="Search by name, email, or phone..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
+      <div className="bg-card border border-border rounded-lg p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative md:w-2/3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+            <input
+              type="text"
+              placeholder="Search by quotation number, name, email, or phone..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Status</label>
+          <div className="md:w-1/3">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => handleStatusChange(e.target.value)}
               className="w-full px-4 py-2 border border-input rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {statuses.map((status) => (
                 <option key={status} value={status}>
-                  {status}
+                  {status === "All" ? "All Statuses" : status.charAt(0).toUpperCase() + status.slice(1)}
                 </option>
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Date Range</label>
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-input rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="All">All Time</option>
-              <option value="Today">Today</option>
-              <option value="Week">This Week</option>
-              <option value="Month">This Month</option>
-            </select>
-          </div>
         </div>
       </div>
 
-      {/* Leads Table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b border-border bg-secondary">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Email</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Phone</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Product</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Source</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Status</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Timestamp</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLeads.map((lead) => (
-                <tr key={lead.id} className="border-b border-border hover:bg-secondary/50 transition-colors">
-                  <td className="px-6 py-4 text-foreground font-medium">{lead.name}</td>
-                  <td className="px-6 py-4 text-foreground text-sm">{lead.email}</td>
-                  <td className="px-6 py-4 text-foreground text-sm">{lead.phone}</td>
-                  <td className="px-6 py-4 text-foreground text-sm">{lead.product}</td>
-                  <td className="px-6 py-4 text-foreground text-sm">{lead.source}</td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        lead.status === "New"
-                          ? "bg-blue-100 text-blue-700"
-                          : lead.status === "Contacted"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {lead.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground text-sm">{lead.timestamp}</td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => onViewDetail(lead)}
-                      className="p-2 hover:bg-secondary rounded transition-colors"
-                      title="View details"
-                    >
-                      <Eye size={18} className="text-primary" />
-                    </button>
-                  </td>
+      {/* Loading State */}
+      {loading && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Loading quotations...</p>
+        </div>
+      )}
+
+      {/* Quotations Table */}
+      {!loading && (
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="border-b border-border bg-secondary">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Quotation #</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Customer</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Contact</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Items</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Total Amount</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Status</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Created</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredLeads.length === 0 && (
-          <div className="px-6 py-12 text-center">
-            <p className="text-muted-foreground">No leads found</p>
+              </thead>
+              <tbody>
+                {paginatedQuotations.map((quotation) => (
+                  <tr key={quotation._id} className="border-b border-border hover:bg-secondary/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <FileText size={16} className="text-primary" />
+                        <span className="font-medium text-foreground">{quotation.quotationNumber}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-medium text-foreground">{quotation.userDetails?.name || "N/A"}</p>
+                        {quotation.userDetails?.companyName && (
+                          <p className="text-xs text-muted-foreground">{quotation.userDetails.companyName}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        {quotation.userDetails?.email && (
+                          <div className="flex items-center gap-1 text-sm text-foreground">
+                            <Mail size={12} className="text-muted-foreground" />
+                            <span className="text-xs">{quotation.userDetails.email}</span>
+                          </div>
+                        )}
+                        {quotation.userDetails?.phone && (
+                          <div className="flex items-center gap-1 text-sm text-foreground">
+                            <Phone size={12} className="text-muted-foreground" />
+                            <span className="text-xs">{quotation.userDetails.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-foreground text-sm">
+                      {quotation.items?.length || 0} item{quotation.items?.length !== 1 ? 's' : ''}
+                    </td>
+                    <td className="px-6 py-4 text-foreground font-medium">
+                      {formatCurrency(quotation.pricing?.total)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(quotation.status)}`}>
+                        {quotation.status.charAt(0).toUpperCase() + quotation.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground text-sm">
+                      {formatDate(quotation.createdAt)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => onViewDetail(quotation)}
+                        className="p-2 hover:bg-secondary rounded transition-colors"
+                        title="View details"
+                      >
+                        <Eye size={18} className="text-primary" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+
+          {filteredQuotations.length === 0 && !loading && (
+            <div className="px-6 py-12 text-center">
+              <p className="text-muted-foreground">No quotations found</p>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {filteredQuotations.length > 0 && (
+            <div className="px-6 py-4 border-t border-border bg-secondary/30">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Show</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="px-2 py-1 border border-input rounded bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span>
+                    entries per page
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredQuotations.length)} of {filteredQuotations.length} quotations
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="First page"
+                  >
+                    ««
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Previous page"
+                  >
+                    «
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {[...Array(totalPages)].map((_, idx) => {
+                      const pageNum = idx + 1
+                      // Show first page, last page, current page, and pages around current
+                      if (
+                        pageNum === 1 ||
+                        pageNum === totalPages ||
+                        (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`px-3 py-1 border rounded transition-colors ${
+                              currentPage === pageNum
+                                ? "bg-[#282965] text-white border-[#282965]"
+                                : "bg-input text-foreground border-input hover:bg-secondary"
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        )
+                      } else if (
+                        pageNum === currentPage - 2 ||
+                        pageNum === currentPage + 2
+                      ) {
+                        return <span key={pageNum} className="px-1">...</span>
+                      }
+                      return null
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Next page"
+                  >
+                    »
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Last page"
+                  >
+                    »»
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

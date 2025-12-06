@@ -2,25 +2,56 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Edit2, Trash2, Upload } from "lucide-react"
+import { Search, Plus, Edit2, Trash2, Upload, X } from "lucide-react"
 import EditProductModal from "@/components/modals/EditProductModal"
+import BulkUploadModal from "@/components/modals/BulkUploadModal"
 
-export default function Products({ products, onEdit, onDelete, onUpdate, loading }) {
+export default function Products({ products, onEdit, onDelete, onUpdate, onBulkUpload, loading }) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [materialFilter, setMaterialFilter] = useState("All")
+  const [capTypeFilter, setCapTypeFilter] = useState("All")
   const [editingProduct, setEditingProduct] = useState(null)
   const [updateLoading, setUpdateLoading] = useState(false)
+  const [showBulkUpload, setShowBulkUpload] = useState(false)
+  const [bulkUploadLoading, setBulkUploadLoading] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
   const materials = ["All", ...new Set(products.map((p) => p.materialOfConstruction).filter(Boolean))]
+  const capTypes = ["All", ...new Set(products.map((p) => p.capType).filter(Boolean))]
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.capType?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesMaterial = materialFilter === "All" || p.materialOfConstruction === materialFilter
-    return matchesSearch && matchesMaterial
+    const matchesCapType = capTypeFilter === "All" || p.capType === capTypeFilter
+    return matchesSearch && matchesMaterial && matchesCapType
   })
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value) => {
+    setSearchQuery(value)
+    setCurrentPage(1)
+  }
+
+  const handleMaterialChange = (value) => {
+    setMaterialFilter(value)
+    setCurrentPage(1)
+  }
+
+  const handleCapTypeChange = (value) => {
+    setCapTypeFilter(value)
+    setCurrentPage(1)
+  }
 
   const handleEditClick = (product) => {
     setEditingProduct(product)
@@ -42,14 +73,77 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
     }
   }
 
+  const handleBulkUpload = async (file) => {
+    setBulkUploadLoading(true)
+    try {
+      const result = await onBulkUpload(file)
+      return result
+    } catch (error) {
+      throw error
+    } finally {
+      setBulkUploadLoading(false)
+    }
+  }
+
+  const handleDeleteClick = (product) => {
+    setDeleteConfirm(product)
+  }
+
+  const handleDeleteConfirm = () => {
+    if (deleteConfirm) {
+      onDelete(deleteConfirm._id)
+      setDeleteConfirm(null)
+    }
+  }
+
   return (
-    <div className="p-6 space-y-6">{editingProduct && (
+    <div className="p-6 space-y-6">
+      {editingProduct && (
         <EditProductModal
           product={editingProduct}
           onClose={handleEditClose}
           onSave={handleEditSave}
           loading={updateLoading}
         />
+      )}
+      {showBulkUpload && (
+        <BulkUploadModal
+          onClose={() => setShowBulkUpload(false)}
+          onUpload={handleBulkUpload}
+          loading={bulkUploadLoading}
+        />
+      )}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Confirm Delete</h2>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete <span className="font-semibold">"{deleteConfirm.name}"</span>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Delete Product
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
@@ -58,13 +152,16 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
           <p className="text-muted-foreground mt-1">Manage your product catalog</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 bg-secondary text-foreground px-4 py-2 rounded-lg hover:bg-secondary/80 transition-colors font-medium border border-border">
+          <button 
+            onClick={() => setShowBulkUpload(true)}
+            className="flex items-center gap-2 bg-secondary text-foreground px-4 py-2 rounded-lg hover:bg-secondary/80 transition-colors font-medium border border-border"
+          >
             <Upload size={20} />
             Bulk Upload
           </button>
           <button
             onClick={() => router.push("/products/add")}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors font-medium"
+            className="flex items-center gap-2 bg-[#282965] text-primary-foreground px-4 py-2 rounded-lg hover:bg-[#154c79] transition-colors font-medium"
           >
             <Plus size={20} />
             Add Product
@@ -73,29 +170,42 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-3 text-muted-foreground" size={20} />
-          <input
-            type="text"
-            placeholder="Search by product name or cap type..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
+      <div className="bg-card border border-border rounded-lg p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative md:w-1/2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+            <input
+              type="text"
+              placeholder="Search by product name or cap type..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-input rounded-lg bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Material</label>
+          <div className="md:w-1/4">
             <select
               value={materialFilter}
-              onChange={(e) => setMaterialFilter(e.target.value)}
+              onChange={(e) => handleMaterialChange(e.target.value)}
               className="w-full px-4 py-2 border border-input rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {materials.map((mat) => (
                 <option key={mat} value={mat}>
-                  {mat}
+                  {mat === "All" ? "All Materials" : mat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="md:w-1/4">
+            <select
+              value={capTypeFilter}
+              onChange={(e) => handleCapTypeChange(e.target.value)}
+              className="w-full px-4 py-2 border border-input rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {capTypes.map((cap) => (
+                <option key={cap} value={cap}>
+                  {cap === "All" ? "All Cap Types" : cap}
                 </option>
               ))}
             </select>
@@ -125,7 +235,7 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((product) => (
+                {paginatedProducts.map((product) => (
                   <tr key={product._id} className="border-b border-border hover:bg-secondary/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -159,11 +269,7 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
                           <Edit2 size={18} className="text-primary" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to delete "${product.name}"?`)) {
-                              onDelete(product._id)
-                            }
-                          }}
+                          onClick={() => handleDeleteClick(product)}
                           className="p-2 hover:bg-secondary rounded transition-colors"
                           title="Delete product"
                         >
@@ -186,6 +292,107 @@ export default function Products({ products, onEdit, onDelete, onUpdate, loading
               >
                 Add your first product
               </button>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {filteredProducts.length > 0 && (
+            <div className="px-6 py-4 border-t border-border bg-secondary/30">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Show</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="px-2 py-1 border border-input rounded bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span>
+                    entries per page
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length} products
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="First page"
+                  >
+                    ««
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Previous page"
+                  >
+                    «
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {[...Array(totalPages)].map((_, idx) => {
+                      const pageNum = idx + 1
+                      // Show first page, last page, current page, and pages around current
+                      if (
+                        pageNum === 1 ||
+                        pageNum === totalPages ||
+                        (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`px-3 py-1 border rounded transition-colors ${
+                              currentPage === pageNum
+                                ? "bg-[#282965] text-white border-[#282965]"
+                                : "bg-input text-foreground border-input hover:bg-secondary"
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        )
+                      } else if (
+                        pageNum === currentPage - 2 ||
+                        pageNum === currentPage + 2
+                      ) {
+                        return <span key={pageNum} className="px-1">...</span>
+                      }
+                      return null
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Next page"
+                  >
+                    »
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-input rounded bg-input text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Last page"
+                  >
+                    »»
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

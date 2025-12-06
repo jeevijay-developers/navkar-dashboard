@@ -8,7 +8,7 @@ import Products from "@/components/pages/products"
 import { useApp } from "@/context/AppContext"
 
 export default function ProductsPage() {
-  const { products, handleDeleteProduct, handleUpdateProduct, loading, fetchProducts } = useApp()
+  const { products, handleDeleteProduct, handleUpdateProduct, handleBulkUpload, loading, fetchProducts } = useApp()
   const router = useRouter()
 
   // Fetch products when component mounts
@@ -30,6 +30,7 @@ export default function ProductsPage() {
             }}
             onUpdate={handleUpdateProduct}
             onDelete={handleDeleteProduct}
+            onBulkUpload={handleBulkUpload}
           />
         </main>
       </div>
